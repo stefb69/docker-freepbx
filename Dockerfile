@@ -10,9 +10,9 @@ ENV LC_ALL=en_US.UTF-8
 ENV ASTERISKUSER asterisk
 ENV ASTERISK_DB_PW Password
 ENV ASTERISKVER 13.1
-ENV FREEPBXVER 12.0.43
+ENV FREEPBXVER 13
 
-EXPOSE 80
+EXPOSE 80 5060
 
 CMD ["/sbin/my_init"]
 
@@ -33,33 +33,18 @@ RUN chmod +x /etc/service/apache2/run && \
 # http://wiki.freepbx.org/display/HTGS/Installing+FreePBX+12+on+Ubuntu+Server+14.04+LTS
 
 # Install Required Dependencies
-RUN sed -i 's/archive.ubuntu.com/mirrors.digitalocean.com/' /etc/apt/sources.list && \
+RUN sed -i 's/archive.ubuntu.com/bouyguestelecom.ubuntu.lafibre.info/' /etc/apt/sources.list && \
     apt-get update && \
     apt-get upgrade -y && \
+    apt-get install -y python-software-properties&& \
+    add-apt-repository -y ppa:jan-hoffmann/asterisk13 && \
     apt-get install -y \
         apache2 \
         automake \
         bison \
-        build-essential \
         curl \
         fail2ban \
-        flex \
-        libasound2-dev \
-        libcurl4-openssl-dev \
-        libical-dev \
         libmyodbc \
-        libmysqlclient-dev \
-        libncurses5-dev \
-        libneon27-dev \
-        libnewt-dev \
-        libogg-dev \
-        libspandsp-dev \
-        libsrtp0-dev \
-        libssl-dev \
-        libsqlite3-dev \
-        libtool \
-        libvorbis-dev \
-        libxml2-dev \
         mpg123 \
         mysql-client \
         mysql-server \
@@ -70,14 +55,11 @@ RUN sed -i 's/archive.ubuntu.com/mirrors.digitalocean.com/' /etc/apt/sources.lis
         php5-gd \
         php5-mysql \
         php-pear \
-        pkg-config \
         sox\
         sqlite3 \
-        autoconf \
-        subversion \
-        unixodbc-dev \
+        unixodbc\
         uuid \
-        uuid-dev && \
+        asterisk asterisk-mysql asterisk-mp3
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
     mv /etc/fail2ban/filter.d/asterisk.conf /etc/fail2ban/filter.d/asterisk.conf.org && \
@@ -94,59 +76,6 @@ COPY conf/mpm_prefork.conf /etc/apache2/mods-available/mpm_prefork.conf
 # Install PearDB
 RUN pear uninstall db && \
     pear install db-1.7.14
-
-# Compile and install pjproject
-WORKDIR /usr/src
-RUN curl -sf -o pjproject.tar.bz2 -L http://www.pjsip.org/release/2.3/pjproject-2.3.tar.bz2 && \
-    mkdir pjproject && \
-    tar -xf pjproject.tar.bz2 -C pjproject --strip-components=1 && \
-    rm pjproject.tar.bz2 && \
-    cd pjproject && \
-    ./configure --enable-shared --disable-sound --disable-resample --disable-video --disable-opencore-amr && \
-    make dep && \
-    make && \
-    make install && \
-    rm -r /usr/src/pjproject
-
-# Compile and Install jansson
-WORKDIR /usr/src
-RUN curl -sf -o jansson.tar.gz -L http://www.digip.org/jansson/releases/jansson-2.7.tar.gz && \
-    mkdir jansson && \
-    tar -xzf jansson.tar.gz -C jansson --strip-components=1 && \
-    rm jansson.tar.gz && \
-    cd jansson && \
-    autoreconf -i && \
-    ./configure && \
-    make && \
-    make install && \
-    rm -r /usr/src/jansson
-
-# Compile and Install Asterisk
-WORKDIR /usr/src
-RUN curl -sf -o asterisk.tar.gz -L http://downloads.asterisk.org/pub/telephony/certified-asterisk/certified-asterisk-$ASTERISKVER-current.tar.gz && \
-    mkdir asterisk && \
-    tar -xzf /usr/src/asterisk.tar.gz -C /usr/src/asterisk --strip-components=1 && \
-    rm asterisk.tar.gz && \
-    cd asterisk && \
-    ./configure && \
-    contrib/scripts/get_mp3_source.sh && \
-    make menuselect.makeopts && \
-    menuselect/menuselect --enable chan_sip menuselect.makeopts && \
-    sed -i "s/BUILD_NATIVE//" menuselect.makeopts && \
-    make && \
-    make install && \
-    make config && \
-    ldconfig && \
-    rm -r /usr/src/asterisk
-
-# Download extra sounds
-WORKDIR /var/lib/asterisk/sounds
-RUN curl -sf -o asterisk-extra-sounds-en-wav-current.tar.gz -L http://downloads.asterisk.org/pub/telephony/sounds/asterisk-extra-sounds-en-wav-current.tar.gz && \
-    tar -xzf asterisk-extra-sounds-en-wav-current.tar.gz && \
-    rm -f asterisk-extra-sounds-en-wav-current.tar.gz && \
-    curl -sf -o asterisk-extra-sounds-en-g722-current.tar.gz -L http://downloads.asterisk.org/pub/telephony/sounds/asterisk-extra-sounds-en-g722-current.tar.gz && \
-    tar -xzf asterisk-extra-sounds-en-g722-current.tar.gz && \
-    rm -f asterisk-extra-sounds-en-g722-current.tar.gz
 
 # Add Asterisk user
 RUN useradd -m $ASTERISKUSER && \
