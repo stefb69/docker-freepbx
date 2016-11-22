@@ -65,18 +65,15 @@ COPY conf/fail2ban/asterisk.conf /etc/fail2ban/filter.d/asterisk.conf
 COPY conf/fail2ban/jail.conf /etc/fail2ban/jail.conf
 
 # Replace default conf files to reduce memory usage
-COPY conf/my-small.cnf /etc/mysql/my.cnf
-COPY conf/mpm_prefork.conf /etc/apache2/mods-available/mpm_prefork.conf
+# COPY conf/my-small.cnf /etc/mysql/my.cnf
+# COPY conf/mpm_prefork.conf /etc/apache2/mods-available/mpm_prefork.conf
 
 # Install Pear requirements
 RUN pear uninstall db && \
-    pear install db-1.7.14 && \
-    pear install Console_Getopt
+    pear install db-1.7.14
 
 # Add Asterisk user
-RUN useradd -m $ASTERISKUSER && \
-    chown $ASTERISKUSER. /var/run/asterisk && \ 
-    chown -R $ASTERISKUSER. /etc/asterisk && \
+RUN chown -R $ASTERISKUSER. /etc/asterisk && \
     chown -R $ASTERISKUSER. /var/lib/asterisk && \
     chown -R $ASTERISKUSER. /var/log/asterisk && \
     chown -R $ASTERISKUSER. /var/spool/asterisk && \
@@ -86,7 +83,7 @@ RUN useradd -m $ASTERISKUSER && \
     rm -rf /var/www/html
 
 # Configure apache
-RUN sed -i 's/\(^upload_max_filesize = \).*/\120M/' /etc/php5/apache2/php.ini && \
+RUN sed -i 's/\(^upload_max_filesize = \).*/\120M/' /etc/php/7.0/fpm/php.ini && \
     cp /etc/apache2/apache2.conf /etc/apache2/apache2.conf_orig && \
     sed -i 's/^\(User\|Group\).*/\1 asterisk/' /etc/apache2/apache2.conf && \
     sed -i 's/AllowOverride None/AllowOverride All/' /etc/apache2/apache2.conf && \
@@ -109,6 +106,7 @@ RUN curl -sf -o freepbx-$FREEPBXVER.tgz -L http://mirror.freepbx.org/modules/pac
     cd /usr/src/freepbx && \
     /etc/init.d/mysql start && \
     /etc/init.d/apache2 start && \
+    sed -i '1 s/^.*$/[directories]/g' /etc/asterisk/asterisk.conf && \
     /usr/sbin/asterisk && \
     ./install -n --ampcgibin /usr/lib/cgi-bin --dbuser=$ASTERISKUSER --dbpass=$ASTERISK_DB_PW && \
     mysql -u$ASTERISKUSER -p$ASTERISK_DB_PW asterisk -e "INSERT into logfile_logfiles \
