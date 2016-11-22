@@ -8,9 +8,9 @@ ENV LANG=en_US.UTF-8
 ENV LANGUAGE=en_US:en
 ENV LC_ALL=en_US.UTF-8
 ENV ASTERISKUSER asterisk
-ENV ASTERISK_DB_PW Password
-ENV ASTERISKVER 13.1
-ENV FREEPBXVER 13
+ENV ASTERISK_DB_PW 59MNtQNncbIsw
+ENV ASTERISKVER 13
+ENV FREEPBXVER 13.0
 
 EXPOSE 80 5060
 
@@ -40,8 +40,6 @@ RUN sed -i 's/archive.ubuntu.com/bouyguestelecom.ubuntu.lafibre.info/' /etc/apt/
     add-apt-repository -y ppa:jan-hoffmann/asterisk13 && \
     apt-get install -y \
         apache2 \
-        automake \
-        bison \
         curl \
         fail2ban \
         libmyodbc \
@@ -73,9 +71,10 @@ COPY conf/fail2ban/jail.conf /etc/fail2ban/jail.conf
 COPY conf/my-small.cnf /etc/mysql/my.cnf
 COPY conf/mpm_prefork.conf /etc/apache2/mods-available/mpm_prefork.conf
 
-# Install PearDB
+# Install Pear requirements
 RUN pear uninstall db && \
-    pear install db-1.7.14
+    pear install db-1.7.14 && \
+    pear install Console_Getopt
 
 # Add Asterisk user
 RUN useradd -m $ASTERISKUSER && \
@@ -93,7 +92,8 @@ RUN useradd -m $ASTERISKUSER && \
 RUN sed -i 's/\(^upload_max_filesize = \).*/\120M/' /etc/php5/apache2/php.ini && \
     cp /etc/apache2/apache2.conf /etc/apache2/apache2.conf_orig && \
     sed -i 's/^\(User\|Group\).*/\1 asterisk/' /etc/apache2/apache2.conf && \
-    sed -i 's/AllowOverride None/AllowOverride All/' /etc/apache2/apache2.conf
+    sed -i 's/AllowOverride None/AllowOverride All/' /etc/apache2/apache2.conf && \
+    a2enmod rewrite
 
 # Configure Asterisk database in MYSQL
 RUN /etc/init.d/mysql start && \
@@ -106,27 +106,23 @@ RUN /etc/init.d/mysql start && \
 
 # Download and install FreePBX
 WORKDIR /usr/src
-RUN curl -sf -o freepbx-$FREEPBXVER.tgz -L http://mirror.freepbx.org/freepbx-$FREEPBXVER.tgz && \
+RUN curl -sf -o freepbx-$FREEPBXVER.tgz -L http://mirror.freepbx.org/modules/packages/freepbx/freepbx-$FREEPBXVER-latest.tgz && \
     tar xfz freepbx-$FREEPBXVER.tgz && \
     rm freepbx-$FREEPBXVER.tgz && \
     cd /usr/src/freepbx && \
     /etc/init.d/mysql start && \
     /etc/init.d/apache2 start && \
     /usr/sbin/asterisk && \
-    ./install_amp --installdb --username=$ASTERISKUSER --password=$ASTERISK_DB_PW && \
-    amportal chown && \
-    amportal a ma upgrade framework && \
-    amportal a ma upgradeall && \
-    amportal chown && \
-    amportal a reload && \
-    amportal a ma refreshsignatures && \
-    amportal chown && \
+    ./install -n --ampcgibin /usr/lib/cgi-bin --dbuser=$ASTERISKUSER --dbpass=$ASTERISK_DB_PW
     mysql -u$ASTERISKUSER -p$ASTERISK_DB_PW asterisk -e "INSERT into logfile_logfiles \
         (name, debug, dtmf, error, fax, notice, verbose, warning, security) \
         VALUES ('fail2ban', 'off', 'off', 'on', 'off', 'on', 'off', 'on', 'on');" && \
-    amportal a r && \
     ln -s /var/lib/asterisk/moh /var/lib/asterisk/mohmp3 && \
-    rm -r /usr/src/freepbx
+    rm -f /usr/share/asterisk/sounds/custom
+    rm -rf /usr/share/asterisk/sounds/en*
+    ln -s /var/lib/asterisk/sounds/custom /usr/share/asterisk/sounds/custom
+    ln -s /var/lib/asterisk/sounds/{en,en_US,fr,fr_CA} /usr/share/asterisk/sounds/
+    rm -rf /usr/src/freepbx
 
 #Make CDRs work
 COPY conf/cdr/odbc.ini /etc/odbc.ini
