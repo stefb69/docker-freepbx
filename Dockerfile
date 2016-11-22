@@ -36,28 +36,25 @@ RUN chmod +x /etc/service/apache2/run && \
 RUN sed -i 's/archive.ubuntu.com/bouyguestelecom.ubuntu.lafibre.info/' /etc/apt/sources.list && \
     apt-get update && \
     apt-get upgrade -y && \
-    apt-get install -y python-software-properties&& \
-    add-apt-repository -y ppa:jan-hoffmann/asterisk13 && \
     apt-get install -y \
         apache2 \
         curl \
         fail2ban \
-        libmyodbc \
         mpg123 \
         mysql-client \
         mysql-server \
-        php5 \
-        php5-cli \
-        php5-curl \
+        php7.0 \
+        php7.0-cli \
+        php7.0-curl \
         php-db \
-        php5-gd \
-        php5-mysql \
+        php7.0-gd \
+        php7.0-mysql \
         php-pear \
         sox\
         sqlite3 \
         unixodbc\
         uuid \
-        asterisk asterisk-mysql asterisk-mp3
+        asterisk asterisk-mysql asterisk-mp3 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
     mv /etc/fail2ban/filter.d/asterisk.conf /etc/fail2ban/filter.d/asterisk.conf.org && \
@@ -113,15 +110,15 @@ RUN curl -sf -o freepbx-$FREEPBXVER.tgz -L http://mirror.freepbx.org/modules/pac
     /etc/init.d/mysql start && \
     /etc/init.d/apache2 start && \
     /usr/sbin/asterisk && \
-    ./install -n --ampcgibin /usr/lib/cgi-bin --dbuser=$ASTERISKUSER --dbpass=$ASTERISK_DB_PW
+    ./install -n --ampcgibin /usr/lib/cgi-bin --dbuser=$ASTERISKUSER --dbpass=$ASTERISK_DB_PW && \
     mysql -u$ASTERISKUSER -p$ASTERISK_DB_PW asterisk -e "INSERT into logfile_logfiles \
         (name, debug, dtmf, error, fax, notice, verbose, warning, security) \
         VALUES ('fail2ban', 'off', 'off', 'on', 'off', 'on', 'off', 'on', 'on');" && \
     ln -s /var/lib/asterisk/moh /var/lib/asterisk/mohmp3 && \
-    rm -f /usr/share/asterisk/sounds/custom
-    rm -rf /usr/share/asterisk/sounds/en*
-    ln -s /var/lib/asterisk/sounds/custom /usr/share/asterisk/sounds/custom
-    ln -s /var/lib/asterisk/sounds/{en,en_US,fr,fr_CA} /usr/share/asterisk/sounds/
+    rm -f /usr/share/asterisk/sounds/custom && \
+    rm -rf /usr/share/asterisk/sounds/en* && \
+    ln -s /var/lib/asterisk/sounds/custom /usr/share/asterisk/sounds/custom && \
+    ln -s /var/lib/asterisk/sounds/{en,en_US,fr,fr_CA} /usr/share/asterisk/sounds/ && \
     rm -rf /usr/src/freepbx
 
 #Make CDRs work
