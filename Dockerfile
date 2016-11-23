@@ -9,8 +9,10 @@ ENV LANGUAGE=en_US:en
 ENV LC_ALL=en_US.UTF-8
 ENV ASTERISKUSER asterisk
 ENV ASTERISK_DB_PW 59MNtQNncbIsw
+ENV AMPMGRPASS 47lcJkDYxEZG1rkzPt85OqrZoYsMYnZi
 ENV ASTERISKVER 13
 ENV FREEPBXVER 13.0
+
 
 EXPOSE 80 5060
 
@@ -67,6 +69,7 @@ COPY conf/fail2ban/jail.conf /etc/fail2ban/jail.conf
 # Replace default conf files to reduce memory usage
 # COPY conf/my-small.cnf /etc/mysql/my.cnf
 # COPY conf/mpm_prefork.conf /etc/apache2/mods-available/mpm_prefork.conf
+COPY conf/fpbx-manager.conf /etc/asterisk/manager.d/freepbx.conf
 
 # Install Pear requirements
 RUN pear uninstall db && \
@@ -107,8 +110,12 @@ RUN curl -sf -o freepbx-$FREEPBXVER.tgz -L http://mirror.freepbx.org/modules/pac
     /etc/init.d/mysql start && \
     /etc/init.d/apache2 start && \
     sed -i '1 s/^.*$/[directories]/g' /etc/asterisk/asterisk.conf && \
-    /usr/sbin/asterisk && \
+    echo "noload => res_pjsip.so" >> /etc/asterisk/modules.conf && \
+    sed -i "s/AMPMGRPASS/$AMPMGRPASS/" /etc/asterisk/manager.d/freepbx.conf && \
+    ./start_asterisk start && \
     ./install -n --ampcgibin /usr/lib/cgi-bin --dbuser=$ASTERISKUSER --dbpass=$ASTERISK_DB_PW && \
+    ln -sf /var/www/html/admin/modules/core/etc/* /etc/asterisk/ && \
+    /etc/init.d/asterisk reload && \
     mysql -u$ASTERISKUSER -p$ASTERISK_DB_PW asterisk -e "INSERT into logfile_logfiles \
         (name, debug, dtmf, error, fax, notice, verbose, warning, security) \
         VALUES ('fail2ban', 'off', 'off', 'on', 'off', 'on', 'off', 'on', 'on');" && \
@@ -116,14 +123,10 @@ RUN curl -sf -o freepbx-$FREEPBXVER.tgz -L http://mirror.freepbx.org/modules/pac
     rm -f /usr/share/asterisk/sounds/custom && \
     rm -rf /usr/share/asterisk/sounds/en* && \
     ln -s /var/lib/asterisk/sounds/custom /usr/share/asterisk/sounds/custom && \
-    ln -s /var/lib/asterisk/sounds/{en,en_US,fr,fr_CA} /usr/share/asterisk/sounds/ && \
+    ln -s /var/lib/asterisk/sounds/{en,fr} /usr/share/asterisk/sounds/ && \
     rm -rf /usr/src/freepbx
 
 #Make CDRs work
-COPY conf/cdr/odbc.ini /etc/odbc.ini
 COPY conf/cdr/odbcinst.ini /etc/odbcinst.ini
-COPY conf/cdr/cdr_adaptive_odbc.conf /etc/asterisk/cdr_adaptive_odbc.conf
-RUN chown asterisk:asterisk /etc/asterisk/cdr_adaptive_odbc.conf && \
-    chmod 775 /etc/asterisk/cdr_adaptive_odbc.conf
 
 WORKDIR /
